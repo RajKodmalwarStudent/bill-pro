@@ -39,6 +39,7 @@ window.addEventListener('DOMContentLoaded', init);
 
 async function init() {
   setLoader(true);
+  registerSW();
   try {
     [stocks, bills, nextBillNum] = await Promise.all([
       DB.loadStocks(),
@@ -51,7 +52,6 @@ async function init() {
     recalc();
     tick();
     setInterval(tick, 1000);
-    registerSW();
   } catch (err) {
     showError(err.message);
   } finally {
