@@ -40,6 +40,8 @@ let authClient = null;
 let authPendingEmail = OWNER_EMAIL;
 let appReady = false;
 let inactivityTimer = null;
+let inactivityDeadline = 0;
+let inactivityClock = null;
 let activityBound = false;
 let clockTimer = null;
 let lastInactiveLogout = false;
@@ -253,16 +255,22 @@ function bindActivityEvents() {
 
 function startInactivityTimer() {
   bindActivityEvents();
+  if (!inactivityClock) {
+    inactivityClock = setInterval(updateSessionIndicator, 1000);
+  }
   resetInactivityTimer();
+  updateSessionIndicator();
 }
 
 function resetInactivityTimer() {
   if (document.getElementById('authGate').classList.contains('open')) return;
   stopInactivityTimer();
+  inactivityDeadline = Date.now() + SESSION_TIMEOUT_MS;
   inactivityTimer = setTimeout(() => {
     lastInactiveLogout = true;
     logoutUser(true);
   }, SESSION_TIMEOUT_MS);
+  updateSessionIndicator();
 }
 
 function stopInactivityTimer() {
@@ -270,6 +278,33 @@ function stopInactivityTimer() {
     clearTimeout(inactivityTimer);
     inactivityTimer = null;
   }
+  inactivityDeadline = 0;
+  if (inactivityClock) {
+    clearInterval(inactivityClock);
+    inactivityClock = null;
+  }
+  setSessionIndicatorText('Session expired');
+}
+
+function setSessionIndicatorText(text) {
+  const el = document.getElementById('sessionIndicator');
+  if (el) el.textContent = text;
+}
+
+function updateSessionIndicator() {
+  if (!inactivityDeadline) {
+    setSessionIndicatorText('Session expired');
+    return;
+  }
+
+  const leftMs = Math.max(0, inactivityDeadline - Date.now());
+  const totalSec = Math.ceil(leftMs / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  const mm = String(min).padStart(2, '0');
+  const ss = String(sec).padStart(2, '0');
+
+  setSessionIndicatorText(`Session expires in ${mm}:${ss}`);
 }
 
 async function logoutUser(inactive = false) {
