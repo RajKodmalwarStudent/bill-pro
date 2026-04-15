@@ -29,17 +29,28 @@ CREATE TABLE IF NOT EXISTS bills (
   profit       DECIMAL(10,2) NOT NULL DEFAULT 0
 );
 
--- ── Row Level Security ──────────────────────────────────────
--- Option A (simple, anon access — fine for internal store use):
+-- ── Row Level Security (Owner-only access) ──────────────────
 ALTER TABLE stocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bills  ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "anon_all_stocks" ON stocks FOR ALL TO anon USING (true) WITH CHECK (true);
-CREATE POLICY "anon_all_bills"  ON bills  FOR ALL TO anon USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "anon_all_stocks" ON stocks;
+DROP POLICY IF EXISTS "anon_all_bills" ON bills;
+DROP POLICY IF EXISTS "owner_only_stocks" ON stocks;
+DROP POLICY IF EXISTS "owner_only_bills" ON bills;
 
--- Option B (disable RLS entirely — only if project is private):
--- ALTER TABLE stocks DISABLE ROW LEVEL SECURITY;
--- ALTER TABLE bills  DISABLE ROW LEVEL SECURITY;
+CREATE POLICY "owner_only_stocks"
+ON stocks
+FOR ALL
+TO authenticated
+USING ((auth.jwt() ->> 'email') = 'rajkodmalwar.in@gmail.com')
+WITH CHECK ((auth.jwt() ->> 'email') = 'rajkodmalwar.in@gmail.com');
+
+CREATE POLICY "owner_only_bills"
+ON bills
+FOR ALL
+TO authenticated
+USING ((auth.jwt() ->> 'email') = 'rajkodmalwar.in@gmail.com')
+WITH CHECK ((auth.jwt() ->> 'email') = 'rajkodmalwar.in@gmail.com');
 
 -- ── Sample Seed Data ────────────────────────────────────────
 INSERT INTO stocks (name, cat, unit, cost, price, qty, low, sold) VALUES

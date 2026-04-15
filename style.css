@@ -10,6 +10,20 @@
 }
 html,body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--ink);font-size:15px;height:100%;overflow:hidden}
 .app{display:flex;flex-direction:column;height:100vh}
+.app.is-hidden{display:none}
+
+/* AUTH GATE */
+.auth-gate{position:fixed;inset:0;z-index:10001;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at 18% 16%,#ffffff 0%,#f4f2ff 45%,#e9e4ff 100%);padding:20px}
+.auth-gate.open{display:flex}
+.auth-card{width:min(420px,92vw);background:var(--card);border:2px solid var(--line);border-radius:22px;padding:26px;box-shadow:0 18px 50px rgba(61,48,212,.2)}
+.auth-brand{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:3px;color:var(--prime);line-height:1;margin-bottom:8px}
+.auth-brand em{color:var(--green);font-style:normal}
+.auth-title{font-size:19px;font-weight:900;color:var(--ink)}
+.auth-sub{font-size:13px;font-weight:700;color:var(--ink3);margin:4px 0 14px}
+.auth-sub span{color:var(--prime);font-weight:900}
+.auth-btn{width:100%;margin-top:2px}
+.auth-msg{min-height:20px;margin-top:10px;font-size:12px;font-weight:800;color:var(--green-d)}
+.auth-msg.err{color:var(--red)}
 
 /* TOP BAR */
 .topbar{height:62px;background:var(--card);border-bottom:2px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;z-index:10}
@@ -24,6 +38,8 @@ html,body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--ink);
 .sdot{width:7px;height:7px;border-radius:50%;background:var(--green)}
 .clk{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:var(--prime)}
 .dtag{font-size:12px;font-weight:700;color:var(--ink3);background:var(--prime-l);border-radius:8px;padding:5px 13px}
+.logout-btn{border:2px solid #ffcccc;background:#fff0f0;color:#c23a3a;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif}
+.logout-btn:hover{background:#ffe3e3}
 
 /* PAGES */
 .page{display:none;flex:1;overflow:hidden}

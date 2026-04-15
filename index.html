@@ -45,8 +45,34 @@
   >Dismiss</button>
 </div>
 
+<!-- AUTH GATE -->
+<div class="auth-gate" id="authGate">
+  <div class="auth-card">
+    <div class="auth-brand">BILL<em>PRO</em></div>
+    <div class="auth-title">Owner Login</div>
+    <div class="auth-sub">Only <span id="authOwnerEmail"></span> can access this app.</div>
+
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input class="form-input" id="authEmail" type="email" placeholder="you@example.com">
+    </div>
+
+    <button class="btn-save auth-btn" id="sendOtpBtn" onclick="sendOtpLogin()">Send OTP</button>
+
+    <div id="otpRow" style="display:none;margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Enter OTP</label>
+        <input class="form-input" id="otpInput" inputmode="numeric" placeholder="6-digit OTP">
+      </div>
+      <button class="btn-save auth-btn" id="verifyOtpBtn" onclick="verifyOtpLogin()">Verify OTP</button>
+    </div>
+
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
 <!-- ★ App Shell ──────────────────────────────────────────── -->
-<div class="app">
+<div class="app" id="appRoot">
 
   <!-- TOP BAR -->
   <div class="topbar">
@@ -59,6 +85,7 @@
       <div class="store-pill"><div class="sdot"></div>Store Open</div>
       <span class="dtag" id="dtag"></span>
       <span class="clk"  id="clk">--:--</span>
+      <button class="logout-btn" onclick="logoutUser(false)">Logout</button>
     </div>
   </div>
 

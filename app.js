@@ -4,7 +4,7 @@
 //  BillPro — Main Application
 // ============================================================
 
-/* global DB */
+/* global DB, supabase, SUPABASE_URL, SUPABASE_ANON_KEY */
 
 // ── Helpers ──────────────────────────────────────────────────
 const f2  = n => '₹' + parseFloat(n).toFixed(2);
@@ -21,6 +21,9 @@ const DEFAULT_CATS = ['Grains', 'Dairy', 'Beverages', 'Snacks', 'Vegetables', 'C
 const UNIT_OPTIONS = ['pcs', 'kg', 'ton', 'quintal', 'g', 'L', 'ml', 'pack', 'box', 'dozen', 'bag'];
 const CATEGORY_STORAGE_KEY = 'billpro.customCategories';
 const HIDDEN_CATEGORY_STORAGE_KEY = 'billpro.hiddenCategories';
+const OWNER_EMAIL = 'rajkodmalwar.in@gmail.com';
+const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
+const ACTIVITY_EVENTS = ['click', 'keydown', 'touchstart', 'mousemove', 'scroll'];
 
 // ── State ─────────────────────────────────────────────────────
 let stocks      = [];
@@ -33,13 +36,86 @@ let customCats  = loadStringArray(CATEGORY_STORAGE_KEY);
 let hiddenCats  = loadStringArray(HIDDEN_CATEGORY_STORAGE_KEY);
 let dialogResolver = null;
 let dialogInputMode = false;
+let authClient = null;
+let authPendingEmail = OWNER_EMAIL;
+let appReady = false;
+let inactivityTimer = null;
+let activityBound = false;
+let clockTimer = null;
+let lastInactiveLogout = false;
 
 // ── Bootstrap ─────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', init);
+window.addEventListener('DOMContentLoaded', bootstrap);
 
-async function init() {
-  setLoader(true);
+async function bootstrap() {
   registerSW();
+  setupAuthUI();
+
+  try {
+    authClient = createAuthClient();
+  } catch (err) {
+    showError(err.message);
+    setAuthMsg(err.message, true);
+    setLoader(false);
+    showAuthGate();
+    return;
+  }
+
+  authClient.auth.onAuthStateChange(async (_event, session) => {
+    if (!session) {
+      stopInactivityTimer();
+      return;
+    }
+
+    if (!isAllowedSession(session)) {
+      await authClient.auth.signOut();
+      setAuthMsg('This account is not allowed for this app.', true);
+      showAuthGate();
+      return;
+    }
+
+    startInactivityTimer();
+  });
+
+  try {
+    const { data, error } = await authClient.auth.getSession();
+    if (error) throw error;
+
+    if (!data.session) {
+      showAuthGate();
+      setLoader(false);
+      return;
+    }
+
+    if (!isAllowedSession(data.session)) {
+      await authClient.auth.signOut();
+      setAuthMsg('Only owner email can access this app.', true);
+      showAuthGate();
+      setLoader(false);
+      return;
+    }
+
+    await startAuthorizedApp();
+  } catch (err) {
+    showError(err.message);
+    setAuthMsg('Could not restore session. Please login again.', true);
+    showAuthGate();
+    setLoader(false);
+  }
+}
+
+async function startAuthorizedApp() {
+  hideAuthGate();
+  startInactivityTimer();
+
+  if (!appReady) {
+    await initAppData();
+    appReady = true;
+  }
+}
+
+async function initAppData() {
+  setLoader(true);
   try {
     [stocks, bills, nextBillNum] = await Promise.all([
       DB.loadStocks(),
@@ -51,12 +127,174 @@ async function init() {
     renderGrid();
     recalc();
     tick();
-    setInterval(tick, 1000);
+    if (clockTimer) clearInterval(clockTimer);
+    clockTimer = setInterval(tick, 1000);
   } catch (err) {
     showError(err.message);
   } finally {
     setLoader(false);
   }
+}
+
+function createAuthClient() {
+  if (typeof supabase === 'undefined') {
+    throw new Error('Supabase SDK not loaded. Check your internet connection.');
+  }
+  if (SUPABASE_URL.includes('YOUR-PROJECT') || SUPABASE_ANON_KEY.includes('YOUR-ANON')) {
+    throw new Error('Open config.js and fill in your Supabase URL and anon key.');
+  }
+  return supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+function setupAuthUI() {
+  const emailInput = document.getElementById('authEmail');
+  const ownerHint = document.getElementById('authOwnerEmail');
+
+  emailInput.value = OWNER_EMAIL;
+  ownerHint.textContent = OWNER_EMAIL;
+  document.getElementById('otpInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') verifyOtpLogin();
+  });
+}
+
+function isAllowedSession(session) {
+  const email = session?.user?.email || '';
+  return email.toLowerCase() === OWNER_EMAIL;
+}
+
+function showAuthGate() {
+  document.getElementById('authGate').classList.add('open');
+  document.getElementById('appRoot').classList.add('is-hidden');
+}
+
+function hideAuthGate() {
+  document.getElementById('authGate').classList.remove('open');
+  document.getElementById('appRoot').classList.remove('is-hidden');
+  setAuthMsg('', false);
+}
+
+function setAuthMsg(msg, isError = false) {
+  const el = document.getElementById('authMsg');
+  el.textContent = msg;
+  el.className = 'auth-msg' + (isError ? ' err' : '');
+}
+
+async function sendOtpLogin() {
+  const btn = document.getElementById('sendOtpBtn');
+  const email = document.getElementById('authEmail').value.trim().toLowerCase();
+  if (!email) {
+    setAuthMsg('Please enter email.', true);
+    return;
+  }
+  if (email !== OWNER_EMAIL) {
+    setAuthMsg('Access denied. Only owner email can login.', true);
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  try {
+    const { error } = await authClient.auth.signInWithOtp({ email });
+    if (error) throw error;
+
+    authPendingEmail = email;
+    document.getElementById('otpRow').style.display = 'block';
+    setAuthMsg('OTP sent. Check your email and enter the 6-digit code.');
+  } catch (err) {
+    setAuthMsg('Could not send OTP: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send OTP';
+  }
+}
+
+async function verifyOtpLogin() {
+  const btn = document.getElementById('verifyOtpBtn');
+  const token = document.getElementById('otpInput').value.trim();
+  if (!token) {
+    setAuthMsg('Enter OTP to continue.', true);
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Verifying...';
+
+  try {
+    const { data, error } = await authClient.auth.verifyOtp({
+      email: authPendingEmail,
+      token,
+      type: 'email',
+    });
+    if (error) throw error;
+    if (!isAllowedSession(data.session)) {
+      await authClient.auth.signOut();
+      throw new Error('Only owner email can access this app.');
+    }
+
+    await startAuthorizedApp();
+    document.getElementById('otpInput').value = '';
+    document.getElementById('otpRow').style.display = 'none';
+  } catch (err) {
+    setAuthMsg('Login failed: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Verify OTP';
+  }
+}
+
+function bindActivityEvents() {
+  if (activityBound) return;
+  ACTIVITY_EVENTS.forEach(evt => {
+    document.addEventListener(evt, resetInactivityTimer, { passive: true });
+  });
+  activityBound = true;
+}
+
+function startInactivityTimer() {
+  bindActivityEvents();
+  resetInactivityTimer();
+}
+
+function resetInactivityTimer() {
+  if (document.getElementById('authGate').classList.contains('open')) return;
+  stopInactivityTimer();
+  inactivityTimer = setTimeout(() => {
+    lastInactiveLogout = true;
+    logoutUser(true);
+  }, SESSION_TIMEOUT_MS);
+}
+
+function stopInactivityTimer() {
+  if (inactivityTimer) {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = null;
+  }
+}
+
+async function logoutUser(inactive = false) {
+  stopInactivityTimer();
+
+  if (authClient) {
+    await authClient.auth.signOut();
+  }
+
+  stocks = [];
+  bills = [];
+  cart = [];
+  activeCat = 'All';
+  appReady = false;
+
+  renderCats();
+  renderGrid();
+  renderCart();
+  recalc();
+
+  document.getElementById('otpInput').value = '';
+  document.getElementById('otpRow').style.display = 'none';
+  showAuthGate();
+  setAuthMsg(inactive ? 'Session expired after 1 hour of inactivity. Login again.' : 'Logged out successfully.');
+  lastInactiveLogout = false;
 }
 
 function registerSW() {
