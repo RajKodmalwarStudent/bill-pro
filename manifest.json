@@ -1,0 +1,24 @@
+{
+  "name": "BillPro — Tablet Billing",
+  "short_name": "BillPro",
+  "description": "A fast tablet POS and billing app for retail stores.",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#F0EDFF",
+  "theme_color": "#5B4CF5",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

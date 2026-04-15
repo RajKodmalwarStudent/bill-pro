@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#5B4CF5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BillPro">
+  <title>BillPro — Tablet Billing</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ★ App Loader ─────────────────────────────────────────── -->
+<div id="appLoader" style="
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px
+">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:4px;color:var(--prime);line-height:1">
+    BILL<span style="color:var(--green)">PRO</span>
+  </div>
+  <div class="loader-spinner"></div>
+  <div style="font-size:14px;font-weight:700;color:var(--ink3)">Connecting to store…</div>
+</div>
+
+<!-- ★ Error Banner ───────────────────────────────────────── -->
+<div id="errorBanner" style="
+  display:none;position:fixed;top:0;left:0;right:0;z-index:9998;
+  background:var(--red);color:#fff;padding:14px 24px;
+  font-weight:800;font-size:14px;
+  align-items:center;gap:12px;justify-content:space-between
+">
+  <span>⚠ <span id="errorMsg"></span></span>
+  <button
+    onclick="document.getElementById('errorBanner').style.display='none'"
+    style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:5px 14px;font-weight:800;cursor:pointer;font-size:13px"
+  >Dismiss</button>
+</div>
+
+<!-- ★ App Shell ──────────────────────────────────────────── -->
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="brand">BILL<em>PRO</em></div>
+    <div class="nav-pills">
+      <button class="npill on" onclick="goPage('billing',this)">Billing</button>
+      <button class="npill"    onclick="goPage('admin',this)">Admin</button>
+    </div>
+    <div class="topright">
+      <div class="store-pill"><div class="sdot"></div>Store Open</div>
+      <span class="dtag" id="dtag"></span>
+      <span class="clk"  id="clk">--:--</span>
+    </div>
+  </div>
+
+  <!-- ====== BILLING PAGE ====== -->
+  <div class="page on" id="page-billing">
+    <div class="bill-layout">
+
+      <!-- Product Panel -->
+      <div class="prod-panel">
+        <div class="search-area">
+          <div class="search-field">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+            <input id="searchInput" placeholder="Search products by name or category…" oninput="filterGrid()">
+          </div>
+        </div>
+        <div class="cat-strip" id="catStrip"></div>
+        <div class="prod-grid" id="prodGrid"></div>
+      </div>
+
+      <!-- Cart Panel -->
+      <div class="cart-panel">
+        <div class="cart-head">
+          <div class="cart-head-row">
+            <div class="cart-title">Current Bill</div>
+            <span class="cart-count-badge" id="cartCount">0 items</span>
+          </div>
+          <div class="cart-date" id="cartDate"></div>
+        </div>
+        <div class="cart-list" id="cartList">
+          <div class="cart-empty">
+            <div class="empty-ring">
+              <svg viewBox="0 0 24 24" style="width:28px;height:28px;fill:none;stroke:var(--line2);stroke-width:1.5">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 01-8 0"/>
+              </svg>
+            </div>
+            <div class="empty-text">Tap a product to add</div>
+          </div>
+        </div>
+        <div class="cart-footer">
+          <div class="foot-row"><span>Subtotal</span><span id="fSubtotal">₹0.00</span></div>
+          <div class="disc-row">
+            <input class="disc-input" id="discInput" type="number" min="0" max="100"
+                   inputmode="decimal" placeholder="Discount %" oninput="recalc()">
+            <button class="disc-clear" onclick="document.getElementById('discInput').value='';recalc()">✕</button>
+          </div>
+          <div class="foot-row">
+            <span style="color:var(--amber)">Discount</span>
+            <span id="fDisc" style="color:var(--amber)">−₹0.00</span>
+          </div>
+          <div class="total-row">
+            <span class="total-label">Total Payable</span>
+            <span class="total-value" id="fTotal">₹0.00</span>
+          </div>
+          <button class="gen-bill-btn" id="genBtn" onclick="checkout()" disabled>Generate Bill →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== ADMIN PAGE ====== -->
+  <div class="page" id="page-admin">
+    <div class="admin-layout">
+      <div class="sidebar">
+        <div class="sidebar-label">Menu</div>
+        <button class="sidebar-item on" onclick="adminNav('dashboard',this)">
+          <div class="si-icon">📊</div>Dashboard
+        </button>
+        <button class="sidebar-item" onclick="adminNav('stocks',this)">
+          <div class="si-icon">📦</div>Stocks
+        </button>
+        <button class="sidebar-item" onclick="adminNav('profit',this)">
+          <div class="si-icon">💰</div>Profit
+        </button>
+        <button class="sidebar-item" onclick="adminNav('bills',this)">
+          <div class="si-icon">🧾</div>Bill History
+        </button>
+      </div>
+      <div class="admin-content">
+        <div class="admin-section on" id="sec-dashboard"></div>
+        <div class="admin-section"    id="sec-stocks"></div>
+        <div class="admin-section"    id="sec-profit"></div>
+        <div class="admin-section"    id="sec-bills"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- .app -->
+
+<!-- ADD / EDIT STOCK MODAL -->
+<div class="modal-overlay" id="modalAdd">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle">Add New Stock</div>
+    <div class="form-group">
+      <label class="form-label">Product Name</label>
+      <input class="form-input" id="fName" placeholder="e.g. Basmati Rice 1kg">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-input" id="fCat">
+          <option>Grains</option><option>Dairy</option><option>Beverages</option>
+          <option>Snacks</option><option>Vegetables</option><option>Care</option><option>Others</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Unit</label>
+        <select class="form-input" id="fUnit">
+          <option>pcs</option><option>kg</option><option>ton</option>
+          <option>quintal</option><option>g</option><option>L</option>
+          <option>ml</option><option>pack</option><option>box</option>
+          <option>dozen</option><option>bag</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Cost Price (₹)</label>
+        <input class="form-input" id="fCost" type="number" inputmode="decimal" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Selling Price (₹)</label>
+        <input class="form-input" id="fSell" type="number" inputmode="decimal" placeholder="0.00">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Quantity in Stock</label>
+        <input class="form-input" id="fQty" type="number" inputmode="numeric" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Low Stock Alert At</label>
+        <input class="form-input" id="fLow" type="number" inputmode="numeric" placeholder="5">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modalAdd')">Cancel</button>
+      <button class="btn-save"   onclick="saveStock()">Save Stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- RECEIPT MODAL -->
+<div class="modal-overlay" id="modalReceipt">
+  <div class="modal-box">
+    <div id="receiptContent"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modalReceipt')">Close</button>
+      <button class="btn-save"   onclick="newBill()">New Bill</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP DIALOG MODAL -->
+<div class="modal-overlay" id="modalDialog">
+  <div class="modal-box modal-dialog-box">
+    <div class="modal-title" id="dialogTitle">Confirm</div>
+    <div class="dialog-message" id="dialogMessage"></div>
+    <div class="form-group" id="dialogInputWrap" style="display:none">
+      <label class="form-label">Value</label>
+      <input class="form-input" id="dialogInput" placeholder="Type here">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="dialogCancelBtn" onclick="dialogCancel()">Cancel</button>
+      <button class="btn-save" id="dialogConfirmBtn" onclick="dialogConfirm()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts (order matters) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .catch((err) => console.warn('SW registration failed:', err));
+    });
+  }
+</script>
+</body>
+</html>
