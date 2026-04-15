@@ -3,7 +3,7 @@
 //  Cache-first for static assets, network-first for Supabase
 // ============================================================
 
-const CACHE = 'billpro-v1';
+const CACHE = 'billpro-v3';
 const STATIC = [
   './',
   './index.html',
@@ -40,6 +40,27 @@ self.addEventListener('fetch', (event) => {
   // Network-only for Supabase API and Google Fonts
   if (url.hostname.endsWith('supabase.co') || url.hostname.endsWith('googleapis.com') || url.hostname.endsWith('gstatic.com')) {
     event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Keep app shell fresh across deployments (fallback to cache when offline)
+  const isAppShell =
+    event.request.mode === 'navigate' ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('manifest.json');
+
+  if (isAppShell) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          const clone = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(event.request, clone));
+          return res;
+        })
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
 
